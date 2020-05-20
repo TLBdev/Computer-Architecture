@@ -10,13 +10,17 @@ class CPU:
         self.ram = [0]*256
         self.pc = 0
         self.fl = 0b0
+        self.SP = 7
+        self.reg[self.SP] = 0xF4
         #Primary Ops
         self.HLT = 0b1
         self.LDI = 0b0010
         self.PRN = 0b0111
         self.PUSH = 0b0101
         self.POP = 0b0110
-        
+        self.PUSH = 0b0101
+        self.POP = 0b0110
+
         #ALU Ops
         self.ALU_bt = {
             0b0010: "MUL",  
@@ -40,6 +44,7 @@ class CPU:
         self.JMP = 0b0100
         self.JNE = 0b0110
         self.JEQ = 0b0101
+        
 
     def load(self, location):
         """Load a program into memory."""
@@ -157,6 +162,18 @@ class CPU:
                 
                 elif instruction == self.HLT:
                     HLT = True
+
+                elif instruction == self.PUSH:
+                    self.SP -= 1
+                    self.ram_write(self.reg[self.SP], operand_a)
+                    address += address_controller  
+
+                elif instruction == self.POP:
+                    byte = self.ram_read(self.reg[self.SP])
+                    self.reg[operand_a] = byte
+                    self.SP += 1
+                    address += address_controller
+
                 else:
                     raise Exception("Unsupported operation")
     def ram_read(self, address):
