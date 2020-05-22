@@ -44,6 +44,8 @@ class CPU:
         self.JMP = 0b0100
         self.JNE = 0b0110
         self.JEQ = 0b0101
+        self.CALL = 0b0000
+        self.RET = 0b0001
         
 
     def load(self, location):
@@ -94,12 +96,15 @@ class CPU:
         elif op == 'SHR':
             self.reg[reg_a] = self.reg[reg_a] >> self.reg[reg_b]
         elif op == 'CMP':
-            if self.reg[reg_a] > self.reg[reg_a]:
+            
+            if self.reg[reg_a] > self.reg[reg_b]:
                 self.fl = 0b010
-            elif self.reg[reg_a] < self.reg[reg_a]:
+            elif self.reg[reg_a] < self.reg[reg_b]:
                 self.fl = 0b100
             else:
                 self.fl = 0b001
+            
+            
         elif op == "TST":
             if self.reg[reg_a] == self.reg[reg_b]:
                 print(f'Passed: {self.reg[reg_a]} == {self.reg[reg_b]}')
@@ -129,36 +134,70 @@ class CPU:
         print()
 
     def run(self):
-        address = 0
+        
         
         HLT = False
 
         while not HLT:
-            self.pc = address
-            IR = self.ram_read(address)
-            operand_a = self.ram_read(address + 1)
-            operand_b = self.ram_read(address + 2)
+            
+            IR = self.ram_read(self.pc)
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
             address_controller = ((IR & 0b11000000) >> 6) + 1
             instruction = IR & 0b00001111
             ALU = ((IR & 0b00100000) >> 5) 
-            CP = ((IR & 0b00010000) >> 4) 
+            PC = ((IR & 0b00010000) >> 4) 
             #LDI
             if ALU == 1:
                 if instruction in self.ALU_bt:
                     self.alu(self.ALU_bt[instruction], operand_a, operand_b)
-                    address += address_controller
+                    self.pc += address_controller
                 else:
-                    raise Exception("Unsupported ALU operation")
-            elif CP == 1:
-                raise Exception("Unsupported CP operation")
+                    raise Exception(f"{IR}Unsupported ALU operation")
+            elif PC == 1:
+                if instruction == self.CALL:
+                    
+                    pointer = self.pc + address_controller
+                    
+                    self.SP -= 1
+                    self.ram_write(self.SP, pointer)
+                    self.pc = self.reg[operand_a]
+                
+                elif instruction == self.RET:
+                    pointer = self.ram_read(self.SP)
+                    
+                    self.SP += 1
+                    self.pc = pointer    
+                
+                elif instruction == self.JMP:
+                    self.pc = self.reg[operand_a]
+
+                elif instruction == self.JEQ:
+                    e_flag = self.fl & 0b00000001
+                    
+                    if e_flag == 1:
+                        self.pc = self.reg[operand_a]
+                    else:
+                        self.pc += address_controller
+
+                elif instruction == self.JNE:
+                    e_flag = self.fl & 0b00000001
+                    
+                    if e_flag == 0:
+                        self.pc = self.reg[operand_a]
+                    else:
+                        self.pc += address_controller
+
+                else:
+                    raise Exception(f"{IR}Unsupported CP operation")
             else:
                 if instruction == self.LDI:
                     self.reg[operand_a] = operand_b 
-                    address += address_controller
+                    self.pc += address_controller
                 
                 elif instruction == self.PRN:
                     print(int(self.reg[operand_a]))
-                    address += address_controller
+                    self.pc += address_controller
                 
                 elif instruction == self.HLT:
                     HLT = True
@@ -166,16 +205,17 @@ class CPU:
                 elif instruction == self.PUSH:
                     self.SP -= 1
                     self.ram_write(self.reg[self.SP], operand_a)
-                    address += address_controller  
+                    self.pc += address_controller  
 
                 elif instruction == self.POP:
                     byte = self.ram_read(self.reg[self.SP])
                     self.reg[operand_a] = byte
                     self.SP += 1
-                    address += address_controller
+                    self.pc += address_controller
 
                 else:
-                    raise Exception("Unsupported operation")
+                    
+                    raise Exception(f"Unsupported operation: {bin(IR)} at {self.pc}")
     def ram_read(self, address):
         return self.ram[address]
     
